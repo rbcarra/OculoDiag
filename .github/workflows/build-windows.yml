@@ -5,6 +5,9 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: write   # para publicar o Release nas tags
+
 jobs:
   build:
     runs-on: windows-latest
@@ -15,15 +18,19 @@ jobs:
           python-version: "3.12"
       - name: Dependências
         run: python -m pip install -r requirements.txt pyinstaller
-      - name: PyInstaller
-        run: pyinstaller --noconfirm --clean packaging\windows\oculodiag.spec
-      - name: Teste rápido do executável
+      - name: PyInstaller (instalável e portátil)
+        run: |
+          pyinstaller --noconfirm --clean packaging\windows\oculodiag.spec
+          pyinstaller --noconfirm packaging\windows\oculodiag-portatil.spec
+      - name: Teste rápido dos executáveis
         shell: pwsh
         run: |
-          $p = Start-Process dist\OculoDiag\OculoDiag.exe -ArgumentList "--simular" -PassThru
-          Start-Sleep 8
-          if ($p.HasExited) { throw "OculoDiag.exe fechou ao iniciar (código $($p.ExitCode))" }
-          Stop-Process $p
+          foreach ($exe in @("dist\OculoDiag\OculoDiag.exe", (Get-Item dist\OculoDiag-*-portatil.exe).FullName)) {
+            $p = Start-Process $exe -ArgumentList "--simular" -PassThru
+            Start-Sleep 15   # o portátil descompacta antes de abrir
+            if ($p.HasExited) { throw "$exe fechou ao iniciar (código $($p.ExitCode))" }
+            Stop-Process $p -Force
+          }
       - name: Instalador (Inno Setup)
         shell: pwsh
         run: |
@@ -33,4 +40,25 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: OculoDiag-windows
-          path: dist/OculoDiag-*-setup.exe
+          path: |
+            dist/OculoDiag-*-setup.exe
+            dist/OculoDiag-*-portatil.exe
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          ## Como baixar
+
+          **Mais fácil — OculoDiag-…-portatil.exe**
+          Baixe e dê dois cliques. Não precisa instalar nada. Pode guardar na Área de Trabalho ou num pen drive.
+          A primeira abertura demora alguns segundos.
+
+          **Instalador — OculoDiag-…-setup.exe**
+          Instala o programa e cria atalhos no Menu Iniciar (inclusive um de simulação, sem câmeras).
+
+          Se o Windows mostrar "O Windows protegeu o computador": clique em **Mais informações** → **Executar assim mesmo**.
+          "@
+          gh release create $env:GITHUB_REF_NAME (Get-Item dist\OculoDiag-*-portatil.exe, dist\OculoDiag-*-setup.exe) --title "OculoDiag $env:GITHUB_REF_NAME" --notes $notes

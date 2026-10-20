@@ -1,5 +1,6 @@
 @echo off
-rem Gera dist\OculoDiag\OculoDiag.exe e, se o Inno Setup estiver instalado,
+rem Gera dist\OculoDiag\OculoDiag.exe, a versao portatil dist\OculoDiag-<versao>-portatil.exe
+rem e, se o Inno Setup estiver instalado,
 rem o instalador dist\OculoDiag-<versao>-setup.exe.
 rem Requer Python 3.10+ (64 bits, de python.org, com Tcl/Tk).
 setlocal
@@ -11,6 +12,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt pyinstaller || exit /b 1
 
 pyinstaller --noconfirm --clean packaging\windows\oculodiag.spec || exit /b 1
+pyinstaller --noconfirm packaging\windows\oculodiag-portatil.spec || exit /b 1
 
 for /f "tokens=2 delims==" %%v in ('findstr /b /c:"VERSION = " oculo_diag.py') do set VER=%%~v
 set VER=%VER: =%
