@@ -1,0 +1,36 @@
+name: build-windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependências
+        run: python -m pip install -r requirements.txt pyinstaller
+      - name: PyInstaller
+        run: pyinstaller --noconfirm --clean packaging\windows\oculodiag.spec
+      - name: Teste rápido do executável
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\OculoDiag\OculoDiag.exe -ArgumentList "--simular" -PassThru
+          Start-Sleep 8
+          if ($p.HasExited) { throw "OculoDiag.exe fechou ao iniciar (código $($p.ExitCode))" }
+          Stop-Process $p
+      - name: Instalador (Inno Setup)
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path oculo_diag.py -Pattern '^VERSION = "(.+)"').Matches[0].Groups[1].Value
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" packaging\windows\installer.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OculoDiag-windows
+          path: dist/OculoDiag-*-setup.exe
