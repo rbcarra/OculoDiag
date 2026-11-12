@@ -1,7 +1,7 @@
 ; Instalador Inno Setup do OculoDiag.
 ; Gerar (depois do PyInstaller):  iscc packaging\windows\installer.iss
 #ifndef AppVersion
-  #define AppVersion "1.1"
+  #define AppVersion "1.2"
 #endif
 
 [Setup]
